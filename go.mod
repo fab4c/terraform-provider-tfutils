@@ -1,4 +1,4 @@
-module github.com/fhioru/terraform-provider-tfutils
+module github.com/fab4c/terraform-provider-tfutils
 
 go 1.19
 

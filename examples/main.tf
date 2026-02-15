@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     tfutils = {
-      source = "fhioru/tfutils"
+      source = "fab4c/tfutils"
     }
   }
 }
