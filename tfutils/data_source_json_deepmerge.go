@@ -1,0 +1,108 @@
+package tfutils
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ datasource.DataSource              = &jsonDeepMergeDataSource{}
+	_ datasource.DataSourceWithConfigure = &jsonDeepMergeDataSource{}
+)
+
+func NewJsonDeepMergeDataSource() datasource.DataSource {
+	return &jsonDeepMergeDataSource{}
+}
+
+type jsonDeepMergeDataSource struct{}
+
+type jsonDeepMergeDataSourceModel struct {
+	Input        types.List   `tfsdk:"input"`
+	AppendList   types.Bool   `tfsdk:"append_list"`
+	DeepCopyList types.Bool   `tfsdk:"deep_copy_list"`
+	Indent       types.Int64  `tfsdk:"indent"`
+	Output       types.String `tfsdk:"output"`
+	ID           types.String `tfsdk:"id"`
+}
+
+func (d *jsonDeepMergeDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_json_deepmerge"
+}
+
+func (d *jsonDeepMergeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Accepts a list of JSON strings and deep-merges them into a single JSON string. Later inputs take precedence over earlier ones for scalar values and maps. Lists are replaced by default.",
+		Attributes: map[string]schema.Attribute{
+			"input": schema.ListAttribute{
+				Description: "An ordered list of JSON strings to deep merge. Later entries take precedence.",
+				Required:    true,
+				ElementType: types.StringType,
+			},
+			"append_list": schema.BoolAttribute{
+				Description: "When true, arrays are appended rather than replaced by later inputs. Defaults to false.",
+				Optional:    true,
+			},
+			"deep_copy_list": schema.BoolAttribute{
+				Description: "When true, array elements are merged one-by-one: element N from each input is deep-merged together. Defaults to false.",
+				Optional:    true,
+			},
+			"indent": schema.Int64Attribute{
+				Description: "The number of spaces to use for indenting the output JSON. Defaults to 2.",
+				Optional:    true,
+			},
+			"output": schema.StringAttribute{
+				Description: "The deep-merged JSON string.",
+				Computed:    true,
+			},
+			"id": schema.StringAttribute{
+				Description: "Placeholder identifier attribute.",
+				Computed:    true,
+			},
+		},
+	}
+}
+
+func (d *jsonDeepMergeDataSource) Configure(_ context.Context, _ datasource.ConfigureRequest, _ *datasource.ConfigureResponse) {
+}
+
+func (d *jsonDeepMergeDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data jsonDeepMergeDataSourceModel
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var inputs []string
+	resp.Diagnostics.Append(data.Input.ElementsAs(ctx, &inputs, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	appendList := !data.AppendList.IsNull() && !data.AppendList.IsUnknown() && data.AppendList.ValueBool()
+	deepCopyList := !data.DeepCopyList.IsNull() && !data.DeepCopyList.IsUnknown() && data.DeepCopyList.ValueBool()
+
+	indent := int64(2)
+	if !data.Indent.IsNull() && !data.Indent.IsUnknown() {
+		indent = data.Indent.ValueInt64()
+	}
+
+	result, err := deepMergeJSONStrings(inputs, appendList, deepCopyList, int(indent))
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deep-merging JSON",
+			fmt.Sprintf("Could not deep merge JSON inputs: %s", err.Error()),
+		)
+		return
+	}
+
+	data.Output = types.StringValue(result)
+	data.ID = types.StringValue("static")
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
