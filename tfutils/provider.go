@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MPL-2.0
-
 package tfutils
 
 import (
@@ -47,12 +45,16 @@ func (p *TFUtilsProvider) Resources(ctx context.Context) []func() resource.Resou
 func (p *TFUtilsProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewJsonFormatDataSource,
+		NewJsonDeepMergeDataSource,
+		NewYamlDeepMergeDataSource,
 	}
 }
 
 func (p *TFUtilsProvider) Functions(ctx context.Context) []func() function.Function {
 	return []func() function.Function{
 		NewJsonFormatFunction,
+		NewJsonDeepMergeFunction,
+		NewYamlDeepMergeFunction,
 	}
 }
 
